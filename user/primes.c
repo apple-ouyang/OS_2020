@@ -3,30 +3,50 @@
 #include "user/user.h"
 
 int main(){
-    int p0[2];
-    pipe(p0);
+    int pp[2];
+    pipe(pp);
+    // int cnt = 0;
     for (int i=2; i<=35; ++i){
-        write(p0[1], i, 4);
+        write(pp[1], &i, sizeof(i));
+        // ++cnt;
     }
+    close(pp[1]);
+    // printf("pp[0]:%d, pp[1]:%d\n", pp[0], pp[1]);
+
+    int todo = 1;
     if(fork()==0){
-        star:
-        int *pl = p0;
-        int n; read(pl[0], n, 4);
-        printf("prime %d", n);
-        int t;
-        int pr[2]; pipe(pr);
-        bool todo = false;
-        while(read(pl[0], t, 4) > 0){
-            if(t%n!=0){
-                todo = true;
-                write(pr[1], t, 4);
+        while (todo){
+            // printf("start!\n");
+            todo = 0;
+            int n = 0, t, pc[2];
+            int fir = 1;
+            while (read(pp[0], &t, sizeof(t))){
+                // printf("read: %d\n", t);
+                if(fir) {
+                    fir = 0;
+                    n = t;
+                    printf("prime %d\n", n);
+                    pipe(pc);
+                    // printf("pc[0]:%d, pc[1]:%d\n", pc[0], pc[1]);
+                    continue;
+                }
+
+                if(t%n!=0){
+                    todo = 1;
+                    // printf("wirte t:%d\n", t);
+                    write(pc[1], &t, sizeof(t));
+                }
+                
+            }
+            close(pp[0]);
+            close(pc[1]);
+            if(todo){
+                pp[0] = pc[0];
+                // printf("pp[0]:%d, pp[1]:%d\n", pp[0], pp[1]);
+                if(fork() > 0) while(wait()>0);
             }
         }
-        pl = pr;
-        if(todo){
-            // todo = false;
-            if(fork()==0) goto star;
-        }
     }
+    else while(wait()>0);
     exit();
 }

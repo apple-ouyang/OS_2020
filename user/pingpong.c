@@ -12,7 +12,7 @@ int main(int argv, int **argc){
 		read(pp[0], buf, 5);
 		printf("%d: received %s",getpid(), buf);
 		write(cp[1], "pong\n", 5);
-		exit();
+		return 0;
 	}else{
 		char buf[10];
 		write(pp[1], "ping\n", 5);
@@ -20,5 +20,5 @@ int main(int argv, int **argc){
 		read(cp[0], buf, 5);
 		printf("%d: received %s",getpid(), buf);
 	}	
-	exit();
+	return 0;
 }
