@@ -19,3 +19,5 @@ myapi.key
 *-handin.tar.gz
 xv6.out*
 .vscode/tasks.json
+user/test.c
+user/hello.c
