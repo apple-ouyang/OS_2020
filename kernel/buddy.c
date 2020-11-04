@@ -262,17 +262,27 @@ int addr_in_range(void *addr,void *left,void *right,int size){
 // If a block is marked as allocated and the buddy is free, put the
 // buddy on the free list at size k.
 int
-bd_initfree_pair(int k, int bi, void* left, void* right) {
+bd_initfree_pair(int k, int bi, void* bd_left, void* bd_right) {
   int buddy = (bi % 2 == 0) ? bi+1 : bi-1;
   int free = 0;
   // if(bit_isset(bd_sizes[k].alloc, bi) !=  bit_isset(bd_sizes[k].alloc, buddy)) {
   if(bit_isflip(bd_sizes[k].alloc, bi)){
     // one of the pair is free
     free = BLK_SIZE(k);
-    if(addr_in_range(addr(k,bi),left,right, free))
-      lst_push(&bd_sizes[k].free, addr(k, bi));         // put buddy on free list
-    else
-      lst_push(&bd_sizes[k].free, addr(k, buddy));      // put bi on free list
+    printf("bd_left:%p bd_right:%p\n", bd_left, bd_right);
+    void* addr_bi = addr(k,bi);
+    void* addr_buddy = addr(k,buddy);
+    printf("bi:%d   %p  buddy:%d %p\n",bi, addr_bi, buddy, addr_buddy);
+    if(addr_bi < addr_buddy)
+      panic("addr_bi < addr_buddy");
+    if(addr_in_range(addr_bi,bd_left,bd_right, free)){
+      printf("bi!\n");
+      lst_push(&bd_sizes[k].free, addr_bi);         // put bi on free list
+    }
+      else{
+      printf("buddy!\n");
+      lst_push(&bd_sizes[k].free, addr_buddy);      // put buddy on free list
+    }
   }
   return free;
 }
@@ -287,9 +297,11 @@ bd_initfree(void *bd_left, void *bd_right) {
   for (int k = 0; k < MAXSIZE; k++) {   // skip max size
     int left = blk_index_next(k, bd_left);
     int right = blk_index(k, bd_right);
+    printf("\nleft!\n");
     free += bd_initfree_pair(k, left, bd_left, bd_right);
     if(right <= left)
       continue;
+    printf("\nright!\n");
     free += bd_initfree_pair(k, right, bd_left, bd_right);
   }
   return free;
