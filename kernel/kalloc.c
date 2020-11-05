@@ -32,6 +32,7 @@ kinit()
     initlock(&kmem[i].lock, "kmem");
   }
   freerange(end, (void*)PHYSTOP);
+  printf("kinit done\n");
 }
 
 void
@@ -40,6 +41,7 @@ freerange(void *pa_start, void *pa_end)
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
   int all = ((uint64)pa_end-(uint64)pa_start)/PGSIZE;
+  printf("all pages are %d\n", all);
   int aver = all/NCPU;
   int i = 0, cnt = 0;
   while (1)
@@ -93,9 +95,11 @@ kfree(void *pa)
   push_off();
   int i = cpuid();
   acquire(&kmem[i].lock);
+  // printf("get lock%d\n",i);
   r->next = kmem[i].freelist;
   kmem[i].freelist = r;
   release(&kmem[i].lock);
+  // printf("free lock%d\n",i);
   pop_off();
 }
 
@@ -114,18 +118,26 @@ kalloc(void)
   if(r)
     kmem[i].freelist = r->next;
   else{
-    for (int j = 0; j < NCPU; j++)if(j!=i)
-    {
-      acquire(&kmem[j].lock);
-      r = kmem[j].freelist;
-      if(r){
-        kmem[j].freelist = r->next;
-        break;
-      }
-      release(&kmem[j].lock);
-    }
+    // printf("find i:%d\n",i);
+    for (int j = 0; j < NCPU; j++)
+      if(j!=i && kmem[j].lock.locked == 0){
+        // printf("find in j:%d\n", j);
+        acquire(&kmem[j].lock);
+        // printf("get lock j:%d\n", j);
+        r = kmem[j].freelist;
+        if(r){
+          // printf("get mem i:%d in j:%d\n", i, j);
+          kmem[j].freelist = r->next;
+          release(&kmem[j].lock);
+          // printf("releas lock j:%d\n", j);
+          break;
+        }
+        release(&kmem[j].lock);
+        // printf("releas lock j:%d\n", j);
+    } 
   }
   release(&kmem[i].lock);
+  // printf("free lock i:%d\n",i);
   pop_off();
 
   if(r)
