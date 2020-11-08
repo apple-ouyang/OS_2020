@@ -190,6 +190,12 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
     if((*pte & PTE_V) == 0){
+      *pte = 0;
+      if(a == last)
+        break;
+      a += PGSIZE;
+      pa += PGSIZE;
+      continue;
       printf("va=%p pte=%p\n", a, *pte);
       panic("uvmunmap: not mapped");
     }
@@ -279,6 +285,25 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     uvmunmap(pagetable, newup, oldsz - newup, 1);
 
   return newsz;
+}
+
+void vmprint(pagetable_t pagetable, int level){
+  if(level==0) 
+    printf("page table %p\n", pagetable);
+  for (uint i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      ++level;
+      for (uint j = 0; j < level; j++)
+        printf(" ..");
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+      
+      uint64 child = PTE2PA(pte);
+      vmprint((pagetable_t)child, level);
+    }
+  }
 }
 
 // Recursively free page-table pages.
