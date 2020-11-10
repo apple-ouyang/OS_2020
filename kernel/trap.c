@@ -69,18 +69,24 @@ usertrap(void)
     // ok
   } 
   else if(r_scause() == 13 || r_scause() == 15){
-    // printf("r_scause:%d\n", r_scause);
-    pagetable_t pagetable = myproc()->pagetable;
-    vmprint(pagetable, 0);
+    struct proc *p = myproc();
+    pagetable_t pagetable = p->pagetable;
+    // vmprint(pagetable, 2);
 
     uint64 va = r_stval();
-    va = PGROUNDDOWN(va);
+    if(va > PHYSTOP){
+      printf("va=%d > PHYSTOP\n", va);
+      p->killed = 1;
+      exit(-1);
+    }
     
+    va = PGROUNDDOWN(va);
     char *mem;
     mem = kalloc();
     if(mem == 0){
-      // uvmdealloc(pagetable, va, oldsz);
-      panic("usertrap");
+      printf("out of memory\n");
+      p->killed = 1;
+      exit(-1);
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pagetable, va, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
@@ -88,8 +94,11 @@ usertrap(void)
       // uvmdealloc(pagetable, va, oldsz);
       panic("usertrap");
     }
-    printf("after alloct:\n");
-    vmprint(pagetable, 0);
+
+    // printf("after alloct:\n");
+    // printf("va: %p, pa:%p\n", va, walkaddr(pagetable, va));
+    // vmprint(pagetable, 2);
+    // printf("\n");
 
     usertrapret();
   }

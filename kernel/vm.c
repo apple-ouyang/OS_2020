@@ -180,6 +180,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 void
 uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
 {
+  
   uint64 a, last;
   pte_t *pte;
   uint64 pa;
@@ -187,16 +188,16 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
-    if((pte = walk(pagetable, a, 0)) == 0)
+    if((pte = walk(pagetable, a, 0)) == 0){
+      // printf("va=%p\n", a);
+      // vmprint(pagetable);
+      // goto next;
       panic("uvmunmap: walk");
+    }
     if((*pte & PTE_V) == 0){
-      *pte = 0;
-      if(a == last)
-        break;
-      a += PGSIZE;
-      pa += PGSIZE;
-      continue;
-      printf("va=%p pte=%p\n", a, *pte);
+      // vmprint(pagetable);
+      // printf("va=%p pte=%p\n", a, *pte);
+      goto next;
       panic("uvmunmap: not mapped");
     }
     if(PTE_FLAGS(*pte) == PTE_V)
@@ -205,6 +206,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
+    next:
     *pte = 0;
     if(a == last)
       break;
@@ -287,23 +289,78 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   return newsz;
 }
 
-void vmprint(pagetable_t pagetable, int level){
-  if(level==0) 
+void RecurVmPrint(pagetable_t pagetable, int level){
+  if(level==2) 
     printf("page table %p\n", pagetable);
-  for (uint i = 0; i < 512; i++)
+  if(level<0)
+    return;
+  for (int i = 0; i < 512; i++)
   {
     pte_t pte = pagetable[i];
-    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+    if(pte & PTE_V){
       // this PTE points to a lower-level page table.
-      ++level;
-      for (uint j = 0; j < level; j++)
+      for (int j = 0; j < 3-level; j++)
         printf(" ..");
       printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
       
       uint64 child = PTE2PA(pte);
-      vmprint((pagetable_t)child, level);
+      RecurVmPrint((pagetable_t)child, level - 1);
     }
   }
+}
+
+void vmprint(pagetable_t pagetable){
+  RecurVmPrint(pagetable, 2);
+}
+
+void RecurDeallocIfNeed(pagetable_t original, pagetable_t pagetable, uint64 top, int level, uint64 va){
+  if(level<0){
+    // printf("va=%p\n", va);
+    if(va < PHYSTOP && va >= top){
+      // vmprint(original);
+      // printf("alloc: va=%p pa=%p\n", va, walkaddr(original, va));
+      uvmunmap(original, va, PGSIZE, 1);
+    }
+    return;
+  }
+    
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      va += i << PXSHIFT(level);
+      RecurDeallocIfNeed(original, (pagetable_t)child, top, level - 1, va);
+    }
+  }
+}
+
+void deallocIfNeed(pagetable_t pagetable, uint64 top){
+  // vmprint(pagetable);
+  // printf("top=%p\n", top);
+  RecurDeallocIfNeed(pagetable, pagetable, top, 2, 0);
+}
+
+uint64 findMaxVa(pagetable_t pagetable, int level){
+  if(level < 0)
+    return 0;
+  for (int i = 511; i >= 0; i--)
+  {
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      // this PTE points to a lower-level page table.
+      // printf("level:%d, i:%d\n", level, i);
+      uint shift = PXSHIFT(level);
+      uint64 add = (uint64)i << shift;
+      // printf("shift:%d, add:%p\n", shift, add);
+      uint64 child = PTE2PA(pte);
+      uint64 nex = findMaxVa((pagetable_t)child, level-1);
+      if(nex != -1)
+        return nex + add;
+    }
+  }
+  return -1;
 }
 
 // Recursively free page-table pages.
@@ -311,6 +368,8 @@ void vmprint(pagetable_t pagetable, int level){
 static void
 freewalk(pagetable_t pagetable)
 {
+  // printf("\nfree walk!\n");
+  // vmprint(pagetable);
   // there are 2^9 = 512 PTEs in a page table.
   for(int i = 0; i < 512; i++){
     pte_t pte = pagetable[i];
@@ -320,7 +379,11 @@ freewalk(pagetable_t pagetable)
       freewalk((pagetable_t)child);
       pagetable[i] = 0;
     } else if(pte & PTE_V){
-      panic("freewalk: leaf");
+      // printf("\ni:%d, pte:%p, pa:%p\n", i, pte, PTE2PA(pte));
+      // vmprint(pagetable);
+      pagetable[i] = 0;
+      continue;
+      // panic("freewalk: leaf");
     }
   }
   kfree((void*)pagetable);
