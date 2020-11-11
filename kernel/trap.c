@@ -69,18 +69,36 @@ usertrap(void)
     // ok
   } 
   else if(r_scause() == 13 || r_scause() == 15){
+    // printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+    // printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     struct proc *p = myproc();
     pagetable_t pagetable = p->pagetable;
-    // vmprint(pagetable, 2);
+    // vmprint(pagetable);
 
     uint64 va = r_stval();
-    if(va > PHYSTOP){
+    uint64 sp = p->tf->sp;
+    uint64 bp = PGROUNDUP(sp); 
+    // printf("\nusertrap sp=%p bp=%p\n", sp, bp);
+    // printf("va=%p\n", va);
+    if(va>=bp-2*PGSIZE && va<= bp-PGSIZE){
+        printf("usertrap: illegal action below user stack!\n");
+        p->killed = 1;
+        exit(-1);
+      }
+
+    if(va >= KERNBASE && va <= PHYSTOP){
       printf("va=%d > PHYSTOP\n", va);
       p->killed = 1;
       exit(-1);
     }
     
     va = PGROUNDDOWN(va);
+    // printf("usertrap: va=%p\n", va);
+    if(walkaddr(p->pagetable, va)){
+      printf("usertrap: already alloc!\n");
+      usertrapret();
+    }
+
     char *mem;
     mem = kalloc();
     if(mem == 0){

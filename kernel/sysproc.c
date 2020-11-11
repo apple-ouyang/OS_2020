@@ -53,9 +53,9 @@ sys_sbrk(void)
   // if(n<0)
   //   printf("before sz=%d after sz=%d\n", p->sz, p->sz+n);
   
-  if(p->sz + n < PHYSTOP)
+  if(p->sz + n < PHYSTOP && p->sz + n >=0)
     p->sz += n;
-  else return addr;
+  else return -1;
 
   if(n<0)
     deallocIfNeed(p->pagetable, p->sz);

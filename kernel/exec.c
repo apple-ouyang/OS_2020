@@ -151,3 +151,27 @@ loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset, uint sz
   
   return 0;
 }
+
+void RecurVmPrint(pagetable_t pagetable, int level){
+  if(level==2) 
+    printf("page table %p\n", pagetable);
+  if(level<0)
+    return;
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      // this PTE points to a lower-level page table.
+      for (int j = 0; j < 3-level; j++)
+        printf(" ..");
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+      
+      uint64 child = PTE2PA(pte);
+      RecurVmPrint((pagetable_t)child, level - 1);
+    }
+  }
+}
+
+void vmprint(pagetable_t pagetable){
+  RecurVmPrint(pagetable, 2);
+}

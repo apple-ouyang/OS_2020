@@ -164,8 +164,10 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
     if(*pte & PTE_V)
+      // goto next;
       panic("remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
+    // next:
     if(a == last)
       break;
     a += PGSIZE;
@@ -189,9 +191,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
     if((pte = walk(pagetable, a, 0)) == 0){
-      // printf("va=%p\n", a);
+      // printf("walk:\nva=%p \n", a);
       // vmprint(pagetable);
-      // goto next;
+      goto next_walk;
       panic("uvmunmap: walk");
     }
     if((*pte & PTE_V) == 0){
@@ -208,6 +210,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
     }
     next:
     *pte = 0;
+    next_walk:
     if(a == last)
       break;
     a += PGSIZE;
@@ -272,6 +275,31 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   return newsz;
 }
 
+void uvmalloc_asMoreAsPossible(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
+{
+  char *mem;
+  uint64 a, pa;
+
+  oldsz = PGROUNDUP(oldsz);
+  a = oldsz;
+  for(; a < newsz; a += PGSIZE){
+    pa = walkaddr(pagetable, a);
+    if(pa!=0)
+      continue;
+    mem = kalloc();
+    if(mem == 0){
+      uvmdealloc(pagetable, a, oldsz);
+      return;
+    }
+    memset(mem, 0, PGSIZE);
+    if(mappages(pagetable, a, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+      kfree(mem);
+      uvmdealloc(pagetable, a, oldsz);
+      return;
+    }
+  }
+}
+
 // Deallocate user pages to bring the process size from oldsz to
 // newsz.  oldsz and newsz need not be page-aligned, nor does newsz
 // need to be less than oldsz.  oldsz can be larger than the actual
@@ -287,30 +315,6 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
     uvmunmap(pagetable, newup, oldsz - newup, 1);
 
   return newsz;
-}
-
-void RecurVmPrint(pagetable_t pagetable, int level){
-  if(level==2) 
-    printf("page table %p\n", pagetable);
-  if(level<0)
-    return;
-  for (int i = 0; i < 512; i++)
-  {
-    pte_t pte = pagetable[i];
-    if(pte & PTE_V){
-      // this PTE points to a lower-level page table.
-      for (int j = 0; j < 3-level; j++)
-        printf(" ..");
-      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
-      
-      uint64 child = PTE2PA(pte);
-      RecurVmPrint((pagetable_t)child, level - 1);
-    }
-  }
-}
-
-void vmprint(pagetable_t pagetable){
-  RecurVmPrint(pagetable, 2);
 }
 
 void RecurDeallocIfNeed(pagetable_t original, pagetable_t pagetable, uint64 top, int level, uint64 va){
@@ -416,22 +420,28 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      continue;
+    //   panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
+    if((mem = kalloc()) == 0){
+      uvmunmap(new, 0, i, 1);
+      return -1;  
+    }
+      // goto err;
     memmove(mem, (char*)pa, PGSIZE);
     if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
       kfree(mem);
-      goto err;
+      uvmunmap(new, 0, i, 1);
+      return -1;
+      // goto err;
     }
   }
   return 0;
 
- err:
-  uvmunmap(new, 0, i, 1);
-  return -1;
+//  err:
+//   uvmunmap(new, 0, i, 1);
+//   return -1;
 }
 
 // mark a PTE invalid for user access.
@@ -454,7 +464,7 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-
+  uvmalloc_asMoreAsPossible(pagetable, dstva, dstva+len);
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
