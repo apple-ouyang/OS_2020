@@ -164,10 +164,8 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
     if(*pte & PTE_V)
-      // goto next;
       panic("remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
-    // next:
     if(a == last)
       break;
     a += PGSIZE;
@@ -186,19 +184,27 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   uint64 a, last;
   pte_t *pte;
   uint64 pa;
-
+  // if(pagetable == (pagetable_t)0x87207000 && walkaddr(pagetable, va)){
+  //   printf("\nfree walk pagetable=0x87207000!\n");
+  //   printf("pa=%p size=%p\n", walkaddr(pagetable, va), size);
+  //   vmprint(pagetable);
+  // }
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
     if((pte = walk(pagetable, a, 0)) == 0){
       // printf("walk:\nva=%p \n", a);
       // vmprint(pagetable);
-      goto next_walk;
+      goto next;
       panic("uvmunmap: walk");
     }
     if((*pte & PTE_V) == 0){
-      // vmprint(pagetable);
-      // printf("va=%p pte=%p\n", a, *pte);
+      if(*pte!=0){
+        vmprint(pagetable);
+        printf("va=%p pte=%p\n", a, *pte);
+        panic("uvmunmap: pte!=0");
+      }
+        
       goto next;
       panic("uvmunmap: not mapped");
     }
@@ -208,14 +214,18 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
-    next:
     *pte = 0;
-    next_walk:
+
+    next:
     if(a == last)
       break;
     a += PGSIZE;
     pa += PGSIZE;
   }
+  // if(pagetable == (pagetable_t)0x87207000){
+  //   printf("\nafter pagetable=0x87207000!\n");
+  //   vmprint(pagetable);
+  // }
 }
 
 // create an empty user page table.
@@ -317,6 +327,31 @@ uvmdealloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz)
   return newsz;
 }
 
+void RecurVmPrint(pagetable_t pagetable, int level){
+  if(level==2) 
+    printf("page table %p\n", pagetable);
+  if(level<0)
+    return;
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+    // if(pte & PTE_V){
+      if(pte){
+      // this PTE points to a lower-level page table.
+      for (int j = 0; j < 3-level; j++)
+        printf(" ..");
+      printf("%d: pte %p pa %p\n", i, pte, PTE2PA(pte));
+      
+      uint64 child = PTE2PA(pte);
+      RecurVmPrint((pagetable_t)child, level - 1);
+    }
+  }
+}
+
+void vmprint(pagetable_t pagetable){
+  RecurVmPrint(pagetable, 2);
+}
+
 void RecurDeallocIfNeed(pagetable_t original, pagetable_t pagetable, uint64 top, int level, uint64 va){
   if(level<0){
     // printf("va=%p\n", va);
@@ -372,8 +407,11 @@ uint64 findMaxVa(pagetable_t pagetable, int level){
 static void
 freewalk(pagetable_t pagetable)
 {
-  // printf("\nfree walk!\n");
-  // vmprint(pagetable);
+  // if(pagetable == (pagetable_t)0x87207000){
+  //   printf("\nfree walk!\n");
+  //   vmprint(pagetable);
+  // }
+  
   // there are 2^9 = 512 PTEs in a page table.
   for(int i = 0; i < 512; i++){
     pte_t pte = pagetable[i];
@@ -384,9 +422,15 @@ freewalk(pagetable_t pagetable)
       pagetable[i] = 0;
     } else if(pte & PTE_V){
       // printf("\ni:%d, pte:%p, pa:%p\n", i, pte, PTE2PA(pte));
+      // exit(1);
+      
+      uint64 pa = PTE2PA(pte);
+      kfree((void*)pa);
+      pte = 0;
+
       // vmprint(pagetable);
-      pagetable[i] = 0;
-      continue;
+      // pagetable[i] = 0;
+      // continue;
       // panic("freewalk: leaf");
     }
   }
@@ -415,13 +459,24 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   uint64 pa, i;
   uint flags;
   char *mem;
-
+  // printf("\nuvmcopy old:\n");
+  // vmprint(old);
+  // printf("uvmcopy new:\n");
+  // vmprint(new);
+  // printf("sz=%d = %p\n", sz, sz);
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
+    if((pte = walk(old, i, 0)) == 0){
+      // printf("i=%p continue\n", i);
       continue;
-    //   panic("uvmcopy: page not present");
+    }
+      
+      // panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0){
+      continue;
+      // printf("i=%p *pte=%p pa=%p\n", i, *pte, PTE2PA(*pte));
+      // panic("uvmcopy: page not present");
+    }
+      
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0){

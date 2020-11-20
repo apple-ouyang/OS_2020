@@ -69,13 +69,18 @@ usertrap(void)
     // ok
   } 
   else if(r_scause() == 13 || r_scause() == 15){
-    // printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    // printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     struct proc *p = myproc();
     pagetable_t pagetable = p->pagetable;
     // vmprint(pagetable);
 
     uint64 va = r_stval();
+
+    if(p->sz == 0 || va >= p->sz){
+      // printf("usertrap: no room in sz to alloc va\n");
+      p->killed = 1;
+      exit(-1);
+    }
+
     uint64 sp = p->tf->sp;
     uint64 bp = PGROUNDUP(sp); 
     // printf("\nusertrap sp=%p bp=%p\n", sp, bp);
@@ -87,22 +92,22 @@ usertrap(void)
       }
 
     if(va >= KERNBASE && va <= PHYSTOP){
-      printf("va=%d > PHYSTOP\n", va);
+      printf("va=%p >= KERNBASE && va <= PHYSTOP\n", va);
       p->killed = 1;
       exit(-1);
     }
     
     va = PGROUNDDOWN(va);
     // printf("usertrap: va=%p\n", va);
-    if(walkaddr(p->pagetable, va)){
-      printf("usertrap: already alloc!\n");
-      usertrapret();
-    }
+    // if(walkaddr(p->pagetable, va)){
+    //   printf("usertrap: already alloc!\n");
+    //   usertrapret();
+    // }
 
     char *mem;
     mem = kalloc();
     if(mem == 0){
-      printf("out of memory\n");
+      printf("usertrap: kalloc:out of memory\n");
       p->killed = 1;
       exit(-1);
     }

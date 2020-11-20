@@ -50,15 +50,27 @@ sys_sbrk(void)
   addr = p->sz;
   // if(growproc(n) < 0)
   //   return -1;
-  // if(n<0)
-  //   printf("before sz=%d after sz=%d\n", p->sz, p->sz+n);
-  
-  if(p->sz + n < PHYSTOP && p->sz + n >=0)
-    p->sz += n;
-  else return -1;
-
-  if(n<0)
-    deallocIfNeed(p->pagetable, p->sz);
+  if(n<0){
+    if(p->sz + n >=0){
+      uvmdealloc(p->pagetable, p->sz, p->sz + n);
+    }else return -1;
+  }
+  p->sz += n;
+  // if(p->sz + n >=0){
+  //   // char c[2] = "0";
+  //   // c[0] = n>0?'+':'-';
+  //   // printf("%s before sz=%p after sz=%p\n",c,  p->sz, p->sz+n);
+    
+  // }
+    
+  // if(n<0){
+  //   // uint64 sz = getTrampolinePageSize(p->pagetable);
+  //   // printf("sz:getTrampolinePageSize = %d = %p\n", sz, sz);
+  //   // vmprint(p->pagetable);
+  //   // deallocIfNeed(p->pagetable, p->sz);
+    
+  // }
+    
   return addr;
 }
 
