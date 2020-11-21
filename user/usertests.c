@@ -1595,6 +1595,7 @@ sbrkbasic(char *s)
     printf("%s: sbrk(<toomuch>) returned %p\n", a);
     exit(1);
   }
+  printf("pass 1\n");
 
   // can one sbrk() less than a page?
   a = sbrk(0);
