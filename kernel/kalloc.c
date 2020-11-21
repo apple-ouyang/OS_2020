@@ -14,8 +14,9 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
-// const int NUM_PAGE = 128*1024*1024/PGSIZE = 32*1024;
-unsigned int ref_page[32*1024];
+// MAX_PAGE = 128*1024*1024/PGSIZE = 32*1024;
+#define MAX_PAGE (32*1024)
+int ref_page[MAX_PAGE];
 
 uint64 get_pageID(uint64 pa){
   uint64 start = PGROUNDUP((uint64)end);
@@ -64,11 +65,7 @@ kfree(void *pa)
     panic("kfree");
     
   int id = get_pageID((uint64)pa);
-  if(ref_page[id]){
-    --ref_page[id];
-    if(ref_page[id])
-      return;
-  }
+  if(--ref_page[id] > 0) return;
   
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -95,8 +92,10 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
-  ref_page[get_pageID((uint64)r)] = 1;
+    ref_page[get_pageID((uint64)r)] = 1;
+  }
+    
   return (void*)r;
 }

@@ -71,31 +71,51 @@ usertrap(void)
     // printf("usertrap!\n");
     uint64 va = r_stval();
 
-    // if(va >= KERNBASE && va <= PHYSTOP){
-    //   printf("va=%p >= KERNBASE && va <= PHYSTOP\n", va);
-    //   p->killed = 1;
-    //   exit(-1);
-    // }
+    if(va >= KERNBASE && va <= PHYSTOP){
+      // printf("va=%p >= KERNBASE && va <= PHYSTOP\n", va);
+      p->killed = 1;
+      exit(-1);
+    }
+
+    uint64 sp = p->tf->sp;
+    uint64 bp = PGROUNDUP(sp);
+    if(va>=bp-2*PGSIZE && va<= bp-PGSIZE){
+      printf("usertrap: illegal action below user stack!\n");
+      p->killed = 1;
+      exit(-1);
+    }
 
     va = PGROUNDDOWN(va);
     struct proc* p = myproc();
-    pte_t* pte;
-    if((pte = walk(p->pagetable, va, 0))==0)
-      panic("usertrap: walk");
-    uint64 pa = PTE2PA(*pte);
+    pte_t* pte = walk(p->pagetable, va, 0);
+    if(pte == 0){
+      printf("usertrap: no map\n");
+      p->killed = 1;
+      exit(-1);
+    }
+    if((*pte & PTE_COW) == 0){
+      printf("usertrap: other exception\n");
+      p->killed = 1;
+      exit(-1);
+    }
+    
+    uint64 pa = walkaddr(p->pagetable, va);
 
-    char* mem;
-    if((mem = kalloc()) == 0){
-      panic("usertrap: kalloc"); 
+    char* mem = kalloc();
+    if(mem == 0){
+      printf("usertrap: kalloc:out of memory\n");
+      p->killed = 1;
+      exit(-1);
     }
     memmove(mem, (char*)pa, PGSIZE);
 
-    uint flags = PTE_FLAGS(*pte);
-    flags &= ~PTE_COW;
-    flags |= PTE_W;
     uvmunmap(p->pagetable, va, PGSIZE, 1);
-    mappages(p->pagetable, va, PGSIZE, (uint64)mem, flags);
-    printf("usertrap finished\n");
+    if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U)!=0){
+      kfree(mem);
+      panic("usertrap:map");
+    }
+      
+    // printf("usertrap finished\n");
   }else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

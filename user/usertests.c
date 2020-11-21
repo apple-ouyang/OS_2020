@@ -1595,7 +1595,6 @@ sbrkbasic(char *s)
     printf("%s: sbrk(<toomuch>) returned %p\n", a);
     exit(1);
   }
-  printf("pass 1\n");
 
   // can one sbrk() less than a page?
   a = sbrk(0);
@@ -1731,7 +1730,6 @@ sbrkfail(char *s)
     if(pids[i] != -1)
       read(fds[0], &scratch, 1);
   }
-
   // if those failed allocations freed up the pages they did allocate,
   // we'll be able to allocate here
   c = sbrk(PGSIZE);
