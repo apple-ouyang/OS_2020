@@ -501,3 +501,11 @@ sys_crash(void)
   crash_op(ip->dev, crash);
   return 0;
 }
+
+int sys_sigalarm(int ticks, void (*handler)()){
+  struct proc *p = myproc();
+  p->alarm_interval = ticks;
+}
+int sys_sigreturn(void){
+  return 0;
+}
