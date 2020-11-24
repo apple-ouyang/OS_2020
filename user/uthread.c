@@ -10,14 +10,32 @@
 #define STACK_SIZE  8192
 #define MAX_THREAD  4
 
+struct context {
+    uint64 ra;
+    uint64 sp;  
+
+    // collee-saved
+    uint64 s0;
+    uint64 s1;
+    uint64 s2;
+    uint64 s3;
+    uint64 s4;
+    // ...
+  };
+
 struct thread {
   char       stack[STACK_SIZE]; /* the thread's stack */
   int        state;             /* FREE, RUNNING, RUNNABLE */
+  int id;
+  struct context context; 
 };
 struct thread all_thread[MAX_THREAD];
 struct thread *current_thread;
 extern void thread_switch(uint64, uint64);
-              
+void thread_a();
+void thread_b();
+void thread_c();
+
 void 
 thread_init(void)
 {
@@ -28,12 +46,20 @@ thread_init(void)
   // a RUNNABLE thread.
   current_thread = &all_thread[0];
   current_thread->state = RUNNING;
+  current_thread->context.sp = (uint64)current_thread->stack;
 }
 
 void 
 thread_schedule(void)
 {
   struct thread *t, *next_thread;
+
+  // printf("\ncurrent thread is %d\n", current_thread->id);
+  // for (int i=0; i<MAX_THREAD; i++)
+  // {
+  //   printf("thread %d state is %d\n", all_thread[i].id, all_thread[i].state);
+  // }
+  
 
   /* Find another runnable thread. */
   next_thread = 0;
@@ -43,6 +69,7 @@ thread_schedule(void)
       t = all_thread;
     if(t->state == RUNNABLE) {
       next_thread = t;
+      // printf("pick thread %d\n", t->id);
       break;
     }
     t = t + 1;
@@ -54,6 +81,7 @@ thread_schedule(void)
   }
 
   if (current_thread != next_thread) {         /* switch threads?  */
+    // printf("switch to thread %d\n", next_thread->id);
     next_thread->state = RUNNING;
     t = current_thread;
     current_thread = next_thread;
@@ -61,6 +89,7 @@ thread_schedule(void)
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
+    thread_switch((uint64)&t->context, (uint64)&next_thread->context);
   } else
     next_thread = 0;
 }
@@ -75,6 +104,13 @@ thread_create(void (*func)())
   }
   t->state = RUNNABLE;
   // YOUR CODE HERE
+  t->context.ra = (uint64)func;
+  t->context.sp = (uint64)(t->stack+STACK_SIZE);
+  if(func == thread_a) t->id = 1;
+  else if(func == thread_b) t->id = 2;
+  else t->id = 3;
+  // printf("cread thread %d\n", t->id);
+  // thread_switch(0, (uint64)func);
 }
 
 void 

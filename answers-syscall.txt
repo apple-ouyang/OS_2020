@@ -1,0 +1,6 @@
+a0 hold arugument, and a1 hold for f(8)+1, a2 hold for 13
+f function: line 0x24
+g function: same as f function
+(the compiler cptimisz these two functions to just a addi)
+printf located in 1560(ra), which is line:648
+value of ra is same as pc in line 30, so ra = 0x30
