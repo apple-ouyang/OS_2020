@@ -106,5 +106,6 @@ struct proc {
 
   int alarm_interval;
   int alarm_ticks;
-  void (*alarm_handel)();
+  void (*alarm_handel)(void);
+  struct context interupt_context;
 };

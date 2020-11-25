@@ -502,10 +502,19 @@ sys_crash(void)
   return 0;
 }
 
-int sys_sigalarm(int ticks, void (*handler)()){
+int sys_sigreturn(void){
+  
+  return 0;
+}
+
+int sys_sigalarm(void){
+  int ticks; 
+  uint64 handler;
+  if(argint(0, &ticks) < 0 || argaddr(1, &handler) < 0)
+    return -1;
   struct proc *p = myproc();
   p->alarm_interval = ticks;
-}
-int sys_sigreturn(void){
-  return 0;
+  p->alarm_handel = (void (*) (void))handler;
+  // printf("\nset ticks:%d handler:%p\n", p->alarm_interval, p->alarm_handel);
+  return sys_sigreturn();
 }

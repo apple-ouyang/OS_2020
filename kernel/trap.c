@@ -78,9 +78,19 @@ usertrap(void)
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2){
+    // printf("proc %s ticks++\n", p->name);
     p->alarm_ticks++;
-    //if(p->alarm_ticks == p->alarm_interval)
-      //TODO
+    // printf("ticks = %d interval = %d\n", p->alarm_ticks, p->alarm_interval);
+    if(p->alarm_ticks == p->alarm_interval){
+      p->alarm_ticks = 0;
+      // printf("alarm ticks!\n");
+
+      p->interupt_context.ra = r_pc
+      p->tf->epc = (uint64)p->alarm_handel;
+      usertrapret();
+      // p->alarm_handel();
+      
+    }
     yield();
   }
     
