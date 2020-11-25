@@ -503,7 +503,9 @@ sys_crash(void)
 }
 
 int sys_sigreturn(void){
-  
+  struct proc*p = myproc();
+  *p->tf = p->alarm_tf;
+  usertrapret();
   return 0;
 }
 
@@ -516,5 +518,5 @@ int sys_sigalarm(void){
   p->alarm_interval = ticks;
   p->alarm_handel = (void (*) (void))handler;
   // printf("\nset ticks:%d handler:%p\n", p->alarm_interval, p->alarm_handel);
-  return sys_sigreturn();
+  return 0;
 }

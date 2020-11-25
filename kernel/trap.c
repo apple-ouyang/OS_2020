@@ -48,7 +48,8 @@ usertrap(void)
   struct proc *p = myproc();
   
   // save user program counter.
-  p->tf->epc = r_sepc();
+  // if(!(r_scause() == 8 && p->tf->a7 == 27))
+    p->tf->epc = r_sepc();
   
   if(r_scause() == 8){
     // system call
@@ -58,7 +59,8 @@ usertrap(void)
 
     // sepc points to the ecall instruction,
     // but we want to return to the next instruction.
-    p->tf->epc += 4;
+    // if(p->tf->a7 != 27)
+      p->tf->epc += 4;
 
     // an interrupt will change sstatus &c registers,
     // so don't enable until done with those registers.
@@ -79,17 +81,15 @@ usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2){
     // printf("proc %s ticks++\n", p->name);
+    
     p->alarm_ticks++;
     // printf("ticks = %d interval = %d\n", p->alarm_ticks, p->alarm_interval);
     if(p->alarm_ticks == p->alarm_interval){
       p->alarm_ticks = 0;
       // printf("alarm ticks!\n");
+      p->alarm_tf = *p->tf;
 
-      p->interupt_context.ra = r_pc
       p->tf->epc = (uint64)p->alarm_handel;
-      usertrapret();
-      // p->alarm_handel();
-      
     }
     yield();
   }

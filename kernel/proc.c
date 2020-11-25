@@ -124,6 +124,7 @@ found:
   p->context.sp = p->kstack + PGSIZE;
 
   p->alarm_ticks = 0;
+  p->alarm_interupt = 0;
 
   return p;
 }

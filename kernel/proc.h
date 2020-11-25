@@ -16,6 +16,8 @@ struct context {
   uint64 s9;
   uint64 s10;
   uint64 s11;
+
+  uint64 epc;
 };
 
 // Per-CPU state.
@@ -106,6 +108,7 @@ struct proc {
 
   int alarm_interval;
   int alarm_ticks;
+  int alarm_interupt;
   void (*alarm_handel)(void);
-  struct context interupt_context;
+  struct trapframe alarm_tf;
 };
