@@ -380,6 +380,8 @@ bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
   struct buf *bp;
+  struct buf *bi;
+  // struct buf *bj;
 
   if(bn < NDIRECT){
     if((addr = ip->addrs[bn]) == 0)
@@ -401,6 +403,70 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
+
+  if(bn < NINDIRECT * NINDIRECT){
+    // 视作二维数组，i，j代表行和列号
+    // bi代表映射的第一块，bj代表映射第二次的实际数据块
+    uint i = bn / NINDIRECT, j = bn % NINDIRECT;
+    if((addr = ip->addrs[NDIRECT+1]) == 0){
+      ip->addrs[NDIRECT+1] = addr = balloc(ip->dev);
+    }
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[i]) == 0){
+      a[i] = addr = balloc(ip->dev);
+      log_write(bp);
+    }
+
+    bi = bread(ip->dev, addr);
+    a = (uint*)bi->data;
+    if((addr = a[j]) == 0){
+      a[j] = addr = balloc(ip->dev);
+      log_write(bi);
+    }
+    brelse(bi);
+    brelse(bp);
+    return addr;
+  }
+
+  // if(bn < NINDIRECT * NINDIRECT * NINDIRECT){
+  //   // 视作二维数组，i，j代表行和列号
+  //   // bi代表映射的第一块，bj代表映射第二次的实际数据块
+  //   uint i, j, k;
+  //   i = bn / (NINDIRECT*NINDIRECT);
+  //   j = (bn-i*(NINDIRECT*NINDIRECT)) / NINDIRECT;
+  //   k = bn % NINDIRECT;
+    
+  //   if((addr = ip->addrs[NDIRECT+2]) == 0){
+  //     ip->addrs[NDIRECT+2] = addr = balloc(ip->dev);
+  //   }
+  //   bp = bread(ip->dev, addr);
+  //   a = (uint*)bp->data;
+  //   if((addr = a[i]) == 0){
+  //     a[i] = addr = balloc(ip->dev);
+  //     log_write(bp);
+  //   }
+
+  //   bi = bread(ip->dev, addr);
+  //   a = (uint*)bi->data;
+  //   if((addr = a[j]) == 0){
+  //     a[j] = addr = balloc(ip->dev);
+  //     log_write(bi);
+  //   }
+
+  //   bj = bread(ip->dev, addr);
+  //   a = (uint*)bj->data;
+  //   if((addr = a[k]) == 0){
+  //     a[k] = addr = balloc(ip->dev);
+  //     log_write(bj);
+  //   }
+
+  //   brelse(bj);
+  //   brelse(bi);
+  //   brelse(bp);
+  //   return addr;
+  // }
 
   panic("bmap: out of range");
 }

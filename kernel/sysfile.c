@@ -184,6 +184,7 @@ isdirempty(struct inode *dp)
 uint64
 sys_unlink(void)
 {
+  // printf("unlink\n");
   struct inode *ip, *dp;
   struct dirent de;
   char name[DIRSIZ], path[MAXPATH];
@@ -328,6 +329,29 @@ sys_open(void)
     iunlockput(ip);
     end_op(ROOTDEV);
     return -1;
+  }
+
+  if(ip->type == T_SYMLINK && (omode&O_NOFOLLOW)==0){
+    char path[MAXPATH];
+    for (int times = 0; times < 10; times++)
+    {
+      readi(ip, 0, (uint64)path, 0, ip->size);
+      iunlockput(ip);
+      if((ip = namei(path)) == 0){
+        end_op(ROOTDEV);
+        return -1;
+      }
+      ilock(ip);
+      if(ip->type != T_SYMLINK)
+        break;
+    }
+    if(ip->type == T_SYMLINK){
+      iunlockput(ip);
+      end_op(ROOTDEV);
+      return -1;
+    }
+      
+    
   }
 
   if(ip->type == T_DEVICE){
@@ -483,3 +507,35 @@ sys_pipe(void)
   return 0;
 }
 
+uint64
+sys_symlink(void){
+  char target[MAXPATH], path[MAXPATH];
+  int len_tar, len_path;
+  struct inode *ip;
+  
+
+  if((len_tar = argstr(0, target, MAXPATH)) < 0 || 
+    (len_path = argstr(1, path, MAXPATH)) < 0 )
+    return -1;
+  // printf("target: %s path: %s\n", target, path);
+
+  begin_op(ROOTDEV);
+  ip = create(path, T_SYMLINK, 0, 0);
+  // printf("sym: create\n");
+  if(ip == 0){
+    // printf("ip == 0\n");
+    end_op(ROOTDEV);
+    return -1;
+  }
+  // ilock(ip);
+  // printf("len_tar=%d\n", len_tar);
+  if(writei(ip, 0, (uint64)target, 0, len_tar) != len_tar)
+    panic("symlink: writei");
+
+  // printf("sym: write\n");
+  iunlockput(ip);
+  end_op(ROOTDEV);
+
+  // printf("sym: end\n");
+  return 0;
+}

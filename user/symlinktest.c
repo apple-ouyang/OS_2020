@@ -55,6 +55,7 @@ stat_slink(char *pn, struct stat *st)
 static void
 testsymlink(void)
 {
+  
   int r, fd1 = -1, fd2 = -1;
   char buf[4] = {'a', 'b', 'c', 'd'};
   char c = 0, c2 = 0;
@@ -63,14 +64,15 @@ testsymlink(void)
   printf("Start: test symlinks\n");
 
   mkdir("/testsymlink");
-
+  // return;
   fd1 = open("/testsymlink/a", O_CREATE | O_RDWR);
   if(fd1 < 0) fail("failed to open a");
 
+  // printf("1\n");
   r = symlink("/testsymlink/a", "/testsymlink/b");
   if(r < 0)
     fail("symlink b -> a failed");
-
+  // printf("2\n");
   if(write(fd1, buf, sizeof(buf)) != 4)
     fail("failed to write to a");
 
