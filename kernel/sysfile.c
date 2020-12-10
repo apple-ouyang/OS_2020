@@ -487,18 +487,31 @@ sys_pipe(void)
 //              int fd, off_t offset);
 uint64
 sys_mmap(void){
-  void *addr; uint length, offset;
+  uint64 addr; int length, offset;
   int prot, flags, fd;
-  if(argaddr(0, addr)<0 || argint(1, length)<0 || argint(2, prot)<0
-  || argint(3, flags)<0 || argint(4, fd)<0 || argint(5, offset)<0)
+  if(argaddr(0, &addr)<0 || argint(1, &length)<0 || argint(2, &prot)<0
+  || argint(3, &flags)<0 || argint(4, &fd)<0 || argint(5, &offset)<0)
     return 0xffffffffffffffff;
+  
+  
 
   struct proc* p = myproc();
-  pagetable_t pagetable = p->pagetable;
-  struct VMA tmp;
-  tmp.addr = addr, tmp.fd = fd, tmp.flags = flags, tmp.length = length, tmp.offset = offset;
+  struct file* f = p->ofile[fd];
+  if(flags == MAP_SHARED && prot&PROT_WRITE){
+    if(!f->writable)
+      return 0xffffffffffffffff;
+  }
 
-  p->vmas[p->vma_cnt++] = tmp;
+  addr = p->sz;
+  
+  ++f->ref;
+  struct VMA tmp = {1, addr, length, addr+length, offset, prot, flags, fd, f};
+  int i = valid_vma();
+  p->vmas[i] = tmp;
+
+  p->sz += length;
+  
+  printf("mmap: id=%d addr=%p flgs=%d\n",i, addr, flags);
 
   return addr;
 }
@@ -506,10 +519,55 @@ sys_mmap(void){
 //  munmap(addr, length)
 uint64
 sys_munmap(void){
-  void* addr; uint length;
-  if(argaddr(0, addr)<0 || argint(1, length)<0)
+  printf("call munmap\n");
+  uint64 addr; int length;
+  if(argaddr(0, &addr)<0 || argint(1, &length)<0)
     return -1;
+  struct proc* p = myproc();
+
+  int id = find_vma(addr);
+  struct VMA* vma = p->vmas+id;
+  printf("munmap: id=%d flgs=%d (%s)\n", id, vma->flags, vma->flags==MAP_SHARED?"MAP_SHARED":"MAP_PRIVATE");
+
+  vma->length -= length;
+  p->sz -= length;
+  if(!vma->length){
+    // printf("munmap: id=%d valid\n", id);
+    vma->valid = 0;
+  }
+    
 
   
+  if(vma->flags == MAP_SHARED){
+    printf("munmap write back\n");
+    struct file* f = vma->f;
+    int n = length, r;
+
+    int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
+    int i = 0;
+    while(i < n){
+      int n1 = n - i;
+      if(n1 > max)
+        n1 = max;
+
+      begin_op(f->ip->dev);
+      ilock(f->ip);
+      if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
+        f->off += r;
+      iunlock(f->ip);
+      end_op(f->ip->dev);
+
+      if(r < 0)
+        break;
+      if(r != n1)
+        panic("short filewrite");
+      i += r;
+    }
+    if(i==n)
+      return 0;
+    else return -1;
+  }
+  uvmunmap(p->pagetable, addr, length, 1);
+
   return 0;
 }

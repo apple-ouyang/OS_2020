@@ -5,6 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+
 
 struct spinlock tickslock;
 uint ticks;
@@ -74,8 +78,10 @@ usertrap(void)
     struct proc *p = myproc();
     pagetable_t pagetable = p->pagetable;
     uint64 va = r_stval();
-    va = PGROUNDDOWN(va);
+    // va = PGROUNDDOWN(va);
 
+    struct VMA vma = p->vmas[find_vma(va)];
+    
     char *mem;
     mem = kalloc();
     if(mem == 0){
@@ -88,6 +94,11 @@ usertrap(void)
       kfree(mem);
       panic("usertrap");
     }
+
+    struct inode* ip = vma.f->ip;
+    ilock(ip);
+    readi(vma.f->ip, 0, (uint64)mem, va - (uint64)vma.addr ,PGSIZE);
+    iunlock(ip);
 
   }else {
     printf("usertrap(): unexpected scause %p (%s) pid=%d\n", r_scause(), scause_desc(r_scause()), p->pid);

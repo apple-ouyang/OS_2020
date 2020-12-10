@@ -139,6 +139,7 @@ mmap_test(void)
   if (close(fd) == -1)
     err("close");
 
+  printf("1!\n");
   // check that mmap does allow read/write mapping of a
   // file opened read/write.
   if ((fd = open(f, O_RDWR)) == -1)
@@ -174,10 +175,11 @@ mmap_test(void)
   if (close(fd) == -1)
     err("close");
 
+  // printf("unmanp!\n");
   // unmap the rest of the mapped memory.
   if (munmap(p+PGSIZE*2, PGSIZE) == -1)
     err("munmap (4)");
-
+  printf("unmanp! pass\n");
   //
   // mmap two files at the same time.
   //

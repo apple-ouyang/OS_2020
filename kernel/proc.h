@@ -80,17 +80,17 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
-#define NVMA  100
 struct VMA
 {
-  void* addr;
+  int valid;
+  uint64 addr;
   uint length;
+  uint64 end;
   uint offset;
   int prot;
   int flags;
   int fd;
-  struct file file;
-  // struct VMA* next;
+  struct file* f;
 };
 
 
@@ -119,5 +119,8 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   struct VMA vmas[NVMA];
-  int vma_cnt;
+  // int vma_cnt;
 };
+
+int valid_vma();
+int find_vma(uint64 va);

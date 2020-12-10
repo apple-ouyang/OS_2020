@@ -17,3 +17,5 @@
 #define PROT_WRITE   2
 #define MAP_SHARED   1
 #define MAP_PRIVATE  2
+
+#define NVMA  100
