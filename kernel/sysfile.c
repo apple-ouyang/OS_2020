@@ -483,15 +483,33 @@ sys_pipe(void)
   return 0;
 }
 
-
+//  void *mmap(void *addr, size_t length, int prot, int flags,
+//              int fd, off_t offset);
 uint64
 sys_mmap(void){
+  void *addr; uint length, offset;
+  int prot, flags, fd;
+  if(argaddr(0, addr)<0 || argint(1, length)<0 || argint(2, prot)<0
+  || argint(3, flags)<0 || argint(4, fd)<0 || argint(5, offset)<0)
+    return 0xffffffffffffffff;
 
-  return 0;
+  struct proc* p = myproc();
+  pagetable_t pagetable = p->pagetable;
+  struct VMA tmp;
+  tmp.addr = addr, tmp.fd = fd, tmp.flags = flags, tmp.length = length, tmp.offset = offset;
+
+  p->vmas[p->vma_cnt++] = tmp;
+
+  return addr;
 }
 
+//  munmap(addr, length)
 uint64
 sys_munmap(void){
+  void* addr; uint length;
+  if(argaddr(0, addr)<0 || argint(1, length)<0)
+    return -1;
 
+  
   return 0;
 }

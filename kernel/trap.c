@@ -70,7 +70,26 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if(r_scause() == 13 || r_scause() == 15){
+    struct proc *p = myproc();
+    pagetable_t pagetable = p->pagetable;
+    uint64 va = r_stval();
+    va = PGROUNDDOWN(va);
+
+    char *mem;
+    mem = kalloc();
+    if(mem == 0){
+      printf("usertrap: kalloc:out of memory\n");
+      p->killed = 1;
+      exit(-1);
+    }
+    memset(mem, 0, PGSIZE);
+    if(mappages(pagetable, va, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+      kfree(mem);
+      panic("usertrap");
+    }
+
+  }else {
     printf("usertrap(): unexpected scause %p (%s) pid=%d\n", r_scause(), scause_desc(r_scause()), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
