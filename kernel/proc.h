@@ -83,9 +83,9 @@ struct trapframe {
 struct VMA
 {
   int valid;
-  uint64 addr;
-  uint length;
+  uint64 start;
   uint64 end;
+  uint length;
   uint offset;
   int prot;
   int flags;
@@ -119,8 +119,7 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   struct VMA vmas[NVMA];
-  // int vma_cnt;
+  struct VMA head;
 };
 
-int valid_vma();
-int find_vma(uint64 va);
+struct VMA* find_vma(uint64 va);

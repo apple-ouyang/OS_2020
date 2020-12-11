@@ -486,17 +486,23 @@ readi(struct inode *ip, int user_dst, uint64 dst, uint off, uint n)
 int
 writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
 {
+  // printf("writei: before off=%d n=%d ip->size=%d\n", off, n, ip->size);
   uint tot, m;
   struct buf *bp;
 
-  if(off > ip->size || off + n < off)
+  if(off > ip->size || off + n < off){
+    printf("writei error: off=%d > ip->size=%d n=%d\n", off, ip->size, n);
     return -1;
+    // panic("writei: off > ip->size || off + n < off");
+  }
+    
   if(off + n > MAXFILE*BSIZE)
     return -1;
 
   for(tot=0; tot<n; tot+=m, off+=m, src+=m){
     bp = bread(ip->dev, bmap(ip, off/BSIZE));
     m = min(n - tot, BSIZE - off%BSIZE);
+    // printf("m=%d tot=%d\n", m, tot);
     if(either_copyin(bp->data + (off % BSIZE), user_src, src, m) == -1) {
       brelse(bp);
       break;
@@ -513,7 +519,7 @@ writei(struct inode *ip, int user_src, uint64 src, uint off, uint n)
     // block to ip->addrs[].
     iupdate(ip);
   }
-
+  // printf("writei: after  off=%d n=%d ip->size=%d\n", off, n, ip->size);
   return n;
 }
 

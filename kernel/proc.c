@@ -277,6 +277,14 @@ fork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  for (int i = 0; i < NVMA; i++)
+  {
+    if(p->vmas[i].valid)
+      p->vmas[i].f->ref++;
+    np->vmas[i] = p->vmas[i];
+  }
+  
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -379,9 +387,9 @@ exit(int status)
   {
     struct VMA vma = p->vmas[i];
     if(vma.valid){
-      uvmunmap(p->pagetable, (uint64)vma.addr, vma.length, 1);
+      uvmunmap(p->pagetable, (uint64)vma.start, vma.length, 1);
       if(vma.flags == MAP_SHARED)
-      filewrite(vma.f, (uint64)vma.addr, vma.length);
+      filewrite(vma.f, (uint64)vma.start, vma.length);
     }
     
   }
@@ -703,23 +711,15 @@ procdump(void)
   }
 }
 
-int valid_vma(){
+struct VMA* find_vma(uint64 va){
   struct proc* p = myproc();
-  for (int i = 0; i < NVMA; i++)
-  {
-    if(!p->vmas[i].valid)
-      return i;
-  }
-  panic("no avalible vma");
-}
 
-int find_vma(uint64 va){
-  struct proc* p = myproc();
   for (int i = 0; i < NVMA; i++)
   {
-    struct VMA tmp = p->vmas[i];
-    if(tmp.valid && va>=tmp.addr && va < tmp.end)
-      return i;
+    struct VMA* v = p->vmas + i;
+    if(v->start <= va && va < v->end)
+      return v;
   }
+  
   panic("no this vma");
 }

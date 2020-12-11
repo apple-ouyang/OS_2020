@@ -1731,6 +1731,7 @@ sbrkfail(char *s)
       read(fds[0], &scratch, 1);
   }
 
+  printf("1\n");
   // if those failed allocations freed up the pages they did allocate,
   // we'll be able to allocate here
   c = sbrk(PGSIZE);
@@ -1745,12 +1746,14 @@ sbrkfail(char *s)
     exit(1);
   }
 
+  printf("2\n");
   // test running fork with the above allocated page 
   pid = fork();
   if(pid < 0){
     printf("%s: fork failed\n", s);
     exit(1);
   }
+  printf("3\n");
   if(pid == 0){
     // allocate a lot of memory
     a = sbrk(0);

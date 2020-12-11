@@ -78,9 +78,32 @@ usertrap(void)
     struct proc *p = myproc();
     pagetable_t pagetable = p->pagetable;
     uint64 va = r_stval();
+    // printf("usrtrap: va=%p\n", va);
     // va = PGROUNDDOWN(va);
 
-    struct VMA vma = p->vmas[find_vma(va)];
+    if(p->sz == 0 || va >= p->sz){
+      printf("usertrap: no room in sz to alloc va\n");
+      p->killed = 1;
+      exit(-1);
+    }
+
+    uint64 sp = p->tf->sp;
+    uint64 bp = PGROUNDUP(sp); 
+    // printf("\nusertrap sp=%p bp=%p\n", sp, bp);
+    // printf("va=%p\n", va);
+    if(va>=bp-2*PGSIZE && va<= bp-PGSIZE){
+        printf("usertrap: illegal action below user stack!\n");
+        p->killed = 1;
+        exit(-1);
+      }
+
+    if(va >= KERNBASE && va <= PHYSTOP){
+      printf("va=%p >= KERNBASE && va <= PHYSTOP\n", va);
+      p->killed = 1;
+      exit(-1);
+    }
+
+    struct VMA* vma = find_vma(va);
     
     char *mem;
     mem = kalloc();
@@ -95,9 +118,11 @@ usertrap(void)
       panic("usertrap");
     }
 
-    struct inode* ip = vma.f->ip;
+    struct inode* ip = vma->f->ip;
     ilock(ip);
-    readi(vma.f->ip, 0, (uint64)mem, va - (uint64)vma.addr ,PGSIZE);
+    // printf("usertrap: read: ip->size=%d off=%d\n", ip->size, va - (uint64)vma->start);
+    if(readi(ip, 0, (uint64)mem, va - (uint64)vma->start ,PGSIZE) < 0)
+      panic("usrtrap: readi");
     iunlock(ip);
 
   }else {

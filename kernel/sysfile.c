@@ -493,25 +493,39 @@ sys_mmap(void){
   || argint(3, &flags)<0 || argint(4, &fd)<0 || argint(5, &offset)<0)
     return 0xffffffffffffffff;
   
-  
-
   struct proc* p = myproc();
   struct file* f = p->ofile[fd];
   if(flags == MAP_SHARED && prot&PROT_WRITE){
     if(!f->writable)
       return 0xffffffffffffffff;
   }
+  ++f->ref;
+
+  int id = -1;
+  for (int i = 0; i < NVMA; i++)
+  {
+    if(!p->vmas[i].valid){
+      id = i;
+      break;
+    }
+  }
+  if(id<0)
+    panic("no avalible vma");
 
   addr = p->sz;
   
-  ++f->ref;
-  struct VMA tmp = {1, addr, length, addr+length, offset, prot, flags, fd, f};
-  int i = valid_vma();
-  p->vmas[i] = tmp;
+  struct VMA* v = p->vmas + id;
+
+  v->valid = 1; 
+  v->start = addr, v->end = addr + length;
+  v->length = length;
+  v->prot = prot, v->flags = flags;
+  v->fd = fd, v->f = f;
 
   p->sz += length;
   
-  printf("mmap: id=%d addr=%p flgs=%d\n",i, addr, flags);
+  // printf("mmap: id=%d addr=%p flgs=%d (%s)\n",v->id, addr, flags,
+  //     v->flags==MAP_SHARED?"MAP_SHARED":"MAP_PRIVATE");
 
   return addr;
 }
@@ -519,28 +533,28 @@ sys_mmap(void){
 //  munmap(addr, length)
 uint64
 sys_munmap(void){
-  printf("call munmap\n");
+  // printf("call munmap\n");
   uint64 addr; int length;
   if(argaddr(0, &addr)<0 || argint(1, &length)<0)
     return -1;
   struct proc* p = myproc();
 
-  int id = find_vma(addr);
-  struct VMA* vma = p->vmas+id;
-  printf("munmap: id=%d flgs=%d (%s)\n", id, vma->flags, vma->flags==MAP_SHARED?"MAP_SHARED":"MAP_PRIVATE");
+  struct VMA* v = find_vma(addr);
+  // printf("munmap: id=%d flgs=%d (%s)\n", v->id, v->flags, 
+  // v->flags==MAP_SHARED?"MAP_SHARED":"MAP_PRIVATE");
 
-  vma->length -= length;
+  v->length -= length;
   p->sz -= length;
-  if(!vma->length){
-    // printf("munmap: id=%d valid\n", id);
-    vma->valid = 0;
+  if(!v->length){
+    // printf("munmap: id=%d remove\n", id);
+    v->valid = 0;
   }
     
 
-  
-  if(vma->flags == MAP_SHARED){
-    printf("munmap write back\n");
-    struct file* f = vma->f;
+  int ret = 0;
+  if(v->flags == MAP_SHARED){
+    // printf("\nmunmap: write back lengh = %d\n", length);
+    struct file* f = v->f;
     int n = length, r;
 
     int max = ((MAXOPBLOCKS-1-1-2) / 2) * BSIZE;
@@ -552,8 +566,10 @@ sys_munmap(void){
 
       begin_op(f->ip->dev);
       ilock(f->ip);
+      // printf("before write off=%d ip->size=%d n=%d\n", f->off, f->ip->size, n1);
       if ((r = writei(f->ip, 1, addr + i, f->off, n1)) > 0)
         f->off += r;
+      // printf("after write  off=%d ip->size=%d\n", f->off, f->ip->size);
       iunlock(f->ip);
       end_op(f->ip->dev);
 
@@ -563,11 +579,10 @@ sys_munmap(void){
         panic("short filewrite");
       i += r;
     }
-    if(i==n)
-      return 0;
-    else return -1;
+    if(i!=n)
+      ret = -1;
   }
   uvmunmap(p->pagetable, addr, length, 1);
 
-  return 0;
+  return ret;
 }

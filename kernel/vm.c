@@ -190,6 +190,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
     if((pte = walk(pagetable, a, 0)) == 0)
       panic("uvmunmap: walk");
     if((*pte & PTE_V) == 0){
+      goto next;
       printf("va=%p pte=%p\n", a, *pte);
       panic("uvmunmap: not mapped");
     }
@@ -200,6 +201,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       kfree((void*)pa);
     }
     *pte = 0;
+    next:
     if(a == last)
       break;
     a += PGSIZE;
@@ -328,7 +330,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      continue;
+      // panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
@@ -395,13 +398,18 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
+    // if(pa0 == 0){
+      // goto next;
+      // printf("copyin error! pa0=0\n");
+      // return -1;
+    // }
+      
     n = PGSIZE - (srcva - va0);
     if(n > len)
       n = len;
-    memmove(dst, (void *)(pa0 + (srcva - va0)), n);
+    if(pa0) memmove(dst, (void *)(pa0 + (srcva - va0)), n);
 
+    // next:
     len -= n;
     dst += n;
     srcva = va0 + PGSIZE;

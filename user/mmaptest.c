@@ -229,7 +229,7 @@ fork_test(void)
   int pid;
   const char * const f = "mmap.dur";
   
-  printf("fork_test starting\n");
+  printf("\nfork_test starting\n");
   testname = "fork_test";
   
   // mmap the file twice.
@@ -244,15 +244,18 @@ fork_test(void)
   if (p2 == MAP_FAILED)
     err("mmap (5)");
 
+  printf("1\n");
   // read just 2nd page.
   if(*(p1+PGSIZE) != 'A')
     err("fork mismatch (1)");
-
+  printf("2\n");
   if((pid = fork()) < 0)
     err("fork");
+  printf("3\n");
   if (pid == 0) {
     _v1(p1);
     munmap(p1, PGSIZE); // just the first page
+    printf("4\n");
     exit(0); // tell the parent that the mapping looks OK.
   }
 
