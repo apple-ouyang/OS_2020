@@ -1,6 +1,13 @@
 完成了1-9实验，实验10由于涉及网络硬件要求，没有完成。
 课程链接：https://pdos.csail.mit.edu/6.828/2019/index.html
 
+另外完成了一个简易版本的文件系统，实现了以下功能：
+ls - 展示读取文件夹内容
+mkdir - 创建文件夹
+touch - 创建文件
+cp - 复制文件（没有完成复制文件夹）
+shutdown - 关闭系统
+
 以下是原官方README
 
 xv6 is a re-implementation of Dennis Ritchie's and Ken Thompson's Unix
