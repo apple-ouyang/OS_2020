@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/ouyang/CLionProjects/file_system_c99/IO.h
+util.h
+/home/ouyang/CLionProjects/file_system_c99/util.h
+
+/home/ouyang/CLionProjects/file_system_c99/disk.h
+
+/home/ouyang/CLionProjects/file_system_c99/shell.c
+shell.h
+/home/ouyang/CLionProjects/file_system_c99/shell.h
+util.h
+/home/ouyang/CLionProjects/file_system_c99/util.h
+IO.h
+/home/ouyang/CLionProjects/file_system_c99/IO.h
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+ctype.h
+-
+
+/home/ouyang/CLionProjects/file_system_c99/shell.h
+
+/home/ouyang/CLionProjects/file_system_c99/util.h
+stdint.h
+-
+disk.h
+/home/ouyang/CLionProjects/file_system_c99/disk.h
+

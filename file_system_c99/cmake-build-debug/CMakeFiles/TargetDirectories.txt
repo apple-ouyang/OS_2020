@@ -1,0 +1,3 @@
+/home/ouyang/CLionProjects/file_system_c99/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/ouyang/CLionProjects/file_system_c99/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/ouyang/CLionProjects/file_system_c99/cmake-build-debug/CMakeFiles/file_system_c99.dir

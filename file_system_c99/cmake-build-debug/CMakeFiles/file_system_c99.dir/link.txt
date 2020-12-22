@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/file_system_c99.dir/IO.c.o CMakeFiles/file_system_c99.dir/disk.c.o CMakeFiles/file_system_c99.dir/main.c.o CMakeFiles/file_system_c99.dir/shell.c.o CMakeFiles/file_system_c99.dir/util.c.o  -o file_system_c99 
